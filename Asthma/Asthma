@@ -1,0 +1,31 @@
+import os
+import numpy as np
+os.environ["THEANO_FLAGS"] = "blas.ldflags=-L/usr/lib/ -lblas"
+import pymc3 as pm
+import pandas as pd
+import theano.tensor as tt
+
+#load data
+asthma_data = pd.read_csv('Asthma_County.csv')
+
+#model specifications
+with pm.Model() as model:
+    #prioris for the Poisson regression coefficients
+    alpha = pm.Normal('alpha', mu=0, sd=10)
+    beta_county = pm.Normal('beta_county', mu=0, sd=10)
+    
+    log_rate = tt.log(asthma_data['rate'])
+    mu = tt.exp(alpha + beta_county * asthma_data['County_New_York_City'] + log_rate)
+    
+    #sampling distribution of the data
+    Y_obs = pm.Poisson('Y_obs', mu=mu, observed=asthma_data['count'])
+    
+    #perform MCMC
+    trace = pm.sample(5000, tune=2000, target_accept=0.5)
+
+#summary statistics for sampled parameters
+summary = pm.summary(trace)
+print(summary)
+
+#plots of posterior distribution of parameters
+pm.plot_posterior(trace, var_names=['alpha', 'beta_county'], ref_val=0)
